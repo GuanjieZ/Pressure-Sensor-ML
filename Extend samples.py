@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import random
 
 # Load the file
-file_path = 'Q:\\mTPAD\\Pressure-Sensor-ML\\carbon_labeled_raw.txt'
-noise_path = 'Q:\\mTPAD\\Pressure-Sensor-ML\\blank.txt'
+file_path = 'D:\\CAD\\Pressure-Sensor-ML\\experiment_labled_raw.txt'
+noise_path = 'D:\\CAD\\Pressure-Sensor-ML\\blank.txt'
 
 # Load the data into a DataFrame
 data = pd.read_csv(file_path, sep="\t", header=None, names=["Time", "Current"])
@@ -42,18 +42,20 @@ for i in range(len(sequences)):
         print(time_stamp[i])
         print()
 
+print(len(length))
+
 print(max(length))
 print(min(length))
 
 
-# Plotting each sequence separately
-plt.figure()
-plt.plot([float(x) for x in sequences[1]])
-plt.show()
+# # Plotting each sequence separately
+# plt.figure()
+# plt.plot([float(x) for x in sequences[1]])
+# plt.show()
 
 
 
-# Save sequences list to a text file
-with open('Q:\\mTPAD\\Pressure-Sensor-ML\\carbon_labled_extended.txt', 'w') as f:
-    for seq in sequences:
-        f.write("%s\n" % seq)
+# # Save sequences list to a text file
+# with open('D:\\CAD\\Pressure-Sensor-ML\\magic_labled_extended.txt', 'w') as f:
+#     for seq in sequences:
+#         f.write("%s\n" % seq)

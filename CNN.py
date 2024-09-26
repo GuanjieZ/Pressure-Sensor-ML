@@ -1,109 +1,131 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.manifold import TSNE
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import SimpleRNN, Dense, Dropout
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
+# Set seed for reproducibility
 seed_value = 42
 np.random.seed(seed_value)
 tf.random.set_seed(seed_value)
 
+# Function to load data from a file
 def load_data(filename):
     sequences = []
     with open(filename, 'r') as file:
         for line in file:
-            # Clean the line and remove any extra characters
             line = line.strip().strip('[]').replace("'", "").replace(" ", "")
-            
-            # Convert the cleaned line into a list of floats
             sequence = list(map(float, line.split(',')))
             sequences.append(sequence)
     return sequences
 
-# Load necessary and carbon sequences
-necessary_sequences = load_data('Q:\\mTPAD\\Pressure-Sensor-ML\\necessary_labled_extended.txt')
-carbon_sequences = load_data('Q:\\mTPAD\\Pressure-Sensor-ML\\carbon_labled_extended.txt')
-
+# Load sequences for all classes
+tsen1_sequences = load_data('D:\\CAD\\Pressure-Sensor-ML\\necessary_labled_extended.txt')  # renamed from necessary
+tsen2_sequences = load_data('D:\\CAD\\Pressure-Sensor-ML\\carbon_labled_extended.txt')     # renamed from carbon
+magic_sequences = load_data('D:\\CAD\\Pressure-Sensor-ML\\magic_labled_extended.txt')
+hello_sequences = load_data('D:\\CAD\\Pressure-Sensor-ML\\hello_labled_extended.txt')
+information_sequences = load_data('D:\\CAD\\Pressure-Sensor-ML\\information_labled_extended.txt')
+experiment_sequences = load_data('D:\\CAD\\Pressure-Sensor-ML\\experiment_labled_extended.txt')
 
 # Label the sequences
-necessary_labels = np.zeros(len(necessary_sequences))
-carbon_labels = np.ones(len(carbon_sequences))
+tsen1_labels = np.zeros(len(tsen1_sequences))  # renamed from necessary_labels
+tsen2_labels = np.ones(len(tsen2_sequences))   # renamed from carbon_labels
+magic_labels = np.full(len(magic_sequences), 2)
+hello_labels = np.full(len(hello_sequences), 3)
+information_labels = np.full(len(information_sequences), 4)
+experiment_labels = np.full(len(experiment_sequences), 5)
 
-# Combine the sequences and labels
-all_sequences = necessary_sequences + carbon_sequences
-all_labels = np.concatenate([necessary_labels, carbon_labels])
+# Combine all sequences and labels
+all_sequences = (tsen1_sequences + tsen2_sequences +
+                 magic_sequences + hello_sequences + 
+                 information_sequences + experiment_sequences)
+all_labels = np.concatenate([tsen1_labels, tsen2_labels, 
+                             magic_labels, hello_labels, 
+                             information_labels, experiment_labels])
 
-# Pad sequences to have the same length
+# Pad sequences
 max_seq_length = max([len(seq) for seq in all_sequences])
 X = pad_sequences(all_sequences, maxlen=max_seq_length, dtype='float32')
 
-# Convert labels to categorical
-y = to_categorical(all_labels, num_classes=2)
+# Convert labels to categorical (6 classes)
+y = to_categorical(all_labels, num_classes=6)
 
 # Split the data into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Reshape the input data to be compatible with RNN (samples, time steps, features)
+# Reshape input data
 X_train = np.expand_dims(X_train, axis=-1)
 X_test = np.expand_dims(X_test, axis=-1)
 
-# Create a Sequential CNN model
+# Create Sequential CNN model
 model = Sequential()
 
-# Add a 1D convolutional layer
+# 1D Convolutional layers
 model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(X_train.shape[1], 1)))
-
-# Add a MaxPooling layer to downsample the sequence
 model.add(MaxPooling1D(pool_size=2))
-
-# Add a second Conv1D layer (optional, can experiment with this)
 model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
-
-# Add another MaxPooling layer (optional, can experiment with this)
 model.add(MaxPooling1D(pool_size=2))
 
-# Flatten the output of the convolutional layers to feed into Dense layers
+# Flatten and add dense layers
 model.add(Flatten())
-
-# Add a Dense layer with dropout for regularization
 model.add(Dropout(0.2))
 model.add(Dense(64, activation='relu'))
 
-# Output layer for binary classification
-model.add(Dense(2, activation='softmax'))
+# Output layer for 6 classes
+model.add(Dense(6, activation='softmax'))
 
 # Compile the model
 model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 
-# Train the model
+# Train the model to ensure the input shape is known
 model.fit(X_train, y_train, epochs=110, batch_size=256, validation_data=(X_test, y_test))
 
 # Evaluate the model
 test_loss, test_accuracy = model.evaluate(X_test, y_test)
 print(f'Test accuracy: {test_accuracy}')
 
-
 # Generate predictions for the test set
 predictions = model.predict(X_test)
 
-# Let's plot the first 10 sequences from the test data
-fig, axes = plt.subplots(10, 1, figsize=(10, 20))
+# Convert predictions and true labels from one-hot encoding to class labels
+y_pred = np.argmax(predictions, axis=1)
+y_true = np.argmax(y_test, axis=1)
 
-for i in range(10):
-    sequence = X_test[i].squeeze()
-    true_label = np.argmax(y_test[i])  # Convert one-hot to the original label (0 or 1)
-    predicted_label = np.argmax(predictions[i])  # Get the predicted class
+# Class names (corresponding to the class indices)
+class_names = ['tsen1', 'tsen2', 'magic', 'hello', 'information', 'experiment']
+
+# Compute confusion matrix
+cm = confusion_matrix(y_true, y_pred)
+
+# Display confusion matrix with class names
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+disp.plot(cmap=plt.cm.Blues)
+plt.xticks(rotation=45)
+plt.show()
+
+# Now that the model has been trained and called, we can create the intermediate model
+intermediate_layer_model = Model(inputs=model.input, outputs=model.get_layer(index=-2).output)
+
+# Get features from the second-to-last Dense layer
+X_test_features = intermediate_layer_model.predict(X_test)
+
+# Apply t-SNE to reduce the dimensionality of the feature vectors to 2D
+tsne = TSNE(n_components=2, random_state=42)
+X_test_tsne = tsne.fit_transform(X_test_features)
+
+# Plot t-SNE graph
+plt.figure(figsize=(10, 8))
+for i, label in enumerate(class_names):
+    indices = np.where(y_true == i)
+    plt.scatter(X_test_tsne[indices, 0], X_test_tsne[indices, 1], label=label, s=50)
     
-    axes[i].plot(sequence)
-    axes[i].set_title(f'Sequence {i+1} - True: {true_label}, Predicted: {predicted_label}')
-    axes[i].set_xlabel('Time Steps')
-    axes[i].set_ylabel('Value')
-
-plt.tight_layout()
+plt.title('t-SNE Visualization of Test Data')
+plt.legend()
 plt.show()
